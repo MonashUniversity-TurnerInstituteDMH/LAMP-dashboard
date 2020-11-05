@@ -557,6 +557,22 @@ export default function Manage({ participant, activities, ...props }) {
           {dialogueType === "Scratch_card" && (
             <Box textAlign="center">Swipe your finger around the screen to reveal the image hidden underneath</Box>
           )}
+          {dialogueType === "Breathe" && (
+            <Typography variant="body2" component="p">
+              Follow the motion of the lotus flower opening and closing to control your breaths in and out.
+            </Typography>
+          )}
+          {dialogueType === "Journals" && (
+            <Typography variant="body2" component="p">
+              Record thoughts, write lists, and make notes. Journal entries are date and time stamped so previous
+              entries can be recalled and read at any time.
+            </Typography>
+          )}
+          {dialogueType !== "Breathe" && dialogueType !== "Scratch_card" && dialogueType !== "Journals" && (
+            <Typography variant="body2" component="p">
+              Test description for the manage section.
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions>
           <Box textAlign="center" width={1} mt={1} mb={4}>
