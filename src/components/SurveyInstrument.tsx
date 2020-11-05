@@ -29,12 +29,29 @@ import {
   Fab,
   Tooltip,
   Icon,
+  FormGroup,
+  Backdrop,
+  CircularProgress,
 } from "@material-ui/core"
+import Checkbox, { CheckboxProps } from "@material-ui/core/Checkbox"
+import CheckBoxOutlineBlankIcon from "@material-ui/icons/CheckBoxOutlineBlank"
+import CheckBoxIcon from "@material-ui/icons/CheckBox"
 import classnames from "classnames"
 import LAMP, { Participant as ParticipantObj } from "lamp-core"
 import { spliceActivity } from "./ActivityList"
 import { useSnackbar } from "notistack"
 import Messages from "./Messages"
+import classes from "*.module.css"
+
+const GreenCheckbox = withStyles({
+  root: {
+    color: "#2F9D7E",
+    "&$checked": {
+      color: "#2F9D7E",
+    },
+    "& svg": { fontSize: "32px !important" },
+  },
+})((props: CheckboxProps) => <Checkbox color="default" {...props} />)
 
 const BorderLinearProgress = withStyles((theme: Theme) =>
   createStyles({
@@ -120,12 +137,21 @@ const useStyles = makeStyles((theme) => ({
     textTransform: "capitalize",
     fontSize: "16px",
     color: "rgba(0, 0, 0, 0.75)",
+    cursor: "pointer !important",
     [theme.breakpoints.up("md")]: {
       marginTop: 30,
     },
-    "&:hover": { background: "#92E7CA" },
+    "& span": { cursor: "pointer" },
+    "&:hover": {
+      background: "#92E7CA",
+      boxShadow:
+        "0px 2px 4px -1px rgba(0,0,0,0.2), 0px 4px 5px 0px rgba(0,0,0,0.14), 0px 1px 10px 0px rgba(0,0,0,0.12)",
+    },
   },
-
+  backdrop: {
+    zIndex: theme.zIndex.drawer + 1,
+    color: "#fff",
+  },
   toolbardashboard: {
     minHeight: 65,
     padding: "0 10px",
@@ -255,13 +281,24 @@ const useStyles = makeStyles((theme) => ({
     [theme.breakpoints.down("xs")]: {
       height: "calc(100vh - 380px)",
       overflow: "auto",
+      position: "relative",
+      top: 0,
     },
+  },
+  fieldGroup: {
+    display: "inline-flex",
+    textAlign: "left",
+    "& span.MuiCheckbox-root": { color: "#C6C6C6 !important" },
+    "& span.Mui-checked": { color: "#2F9D7E !important" },
+  },
+  sliderValueLabel: {
+    width: "calc(100% + 105px)",
+    marginLeft: "-50px",
   },
 }))
 
 // Splice together all selected activities & their tags.
 async function getSplicedSurveys(activities) {
-  console.log(activities)
   let res = await Promise.all(activities.map((x) => LAMP.Type.getAttachment(x.id, "lamp.dashboard.survey_description")))
   let spliced = res.map((y: any, idx) =>
     spliceActivity({
@@ -296,7 +333,7 @@ function _useTernaryBool() {
 }
 
 function RadioOption({ onChange, options, value, ...props }) {
-  const [selectedValue, setSelectedValue] = useState(value || "")
+  const [selectedValue, setSelectedValue] = useState(value)
   const classes = useStyles()
 
   return (
@@ -314,7 +351,7 @@ function RadioOption({ onChange, options, value, ...props }) {
           <FormControlLabel
             key={x.label}
             value={`${x.value}`}
-            style={{ alignItems: !!x.description ? "flex-start" : undefined }}
+            style={{ alignItems: x.value.length > 25 && !!x.description ? "flex-start" : undefined }}
             control={
               <Radio
                 className={classes.radioroot}
@@ -501,6 +538,7 @@ function TimeSelection({ onChange, value, ...props }) {
 
 function TextSection({ onChange, charLimit, value, ...props }) {
   const classes = useStyles()
+  const [text, setText] = useState(value)
 
   return (
     <Box className={classes.textfieldwrapper}>
@@ -515,9 +553,12 @@ function TextSection({ onChange, charLimit, value, ...props }) {
           multiline
           rows={10}
           variant="outlined"
-          onChange={onChange}
-          value={!!value ? value.value : undefined}
-          helperText={!!value ? `${value.value.length}/${charLimit} max characters` : `${charLimit} max characters`}
+          onChange={(e) => {
+            setText(e.target.value)
+            onChange(e.target.value)
+          }}
+          value={value}
+          helperText={text ? `${text.length}/${charLimit} max characters` : `${charLimit} max characters`}
           inputProps={{
             maxLength: charLimit,
           }}
@@ -530,34 +571,51 @@ function TextSection({ onChange, charLimit, value, ...props }) {
 
 function Rating({ onChange, options, value, ...props }) {
   const classes = useStyles()
+  const [valueText, setValueText] = useState(!!value ? value : options[0].description)
+  const [sliderValue, setSliderValue] = useState(!!value ? 0 : parseInt(options[0].value))
+
+  useEffect(() => {
+    if (!!value) {
+      options.map(function (mark) {
+        if (mark.description == value) {
+          setSliderValue(parseInt(mark.value))
+        }
+      })
+    }
+    onChange(valueText)
+  }, [])
 
   const valuetext = (value: number) => {
     return `${options[value]}`
   }
 
-  const getSliderValue = () => {
-    let sliderValue = options[0].label
-    let slValue = !!value ? value.value : undefined
+  const getSliderValue = (val) => {
+    let sliderValue = options[0].description
+    let slValue = val
 
     options.map(function (mark) {
       if (mark.value == slValue) {
-        sliderValue = mark.label
+        sliderValue = mark.description
       }
     })
+    setSliderValue(val)
+    setValueText(sliderValue)
+    onChange(sliderValue)
     return sliderValue
   }
 
   return (
     <Box textAlign="center" mt={5}>
       <Slider
-        defaultValue={!!value ? value.value : undefined}
+        defaultValue={sliderValue}
+        value={sliderValue}
         getAriaValueText={valuetext}
         aria-labelledby="discrete-slider"
         valueLabelDisplay="auto"
-        step={10}
+        step={parseInt(options[1].value) - parseInt(options[0].value)}
         marks
-        min={0}
-        max={100}
+        min={parseInt(options[0].value)}
+        max={parseInt(options[options.length - 1].value)}
         track={false}
         classes={{
           root: classes.slider,
@@ -565,22 +623,31 @@ function Rating({ onChange, options, value, ...props }) {
           mark: classes.customTrack,
           thumb: classes.customThumb,
         }}
-        onChange={onChange}
+        onChange={(evt, val) => {
+          getSliderValue(val)
+        }}
       />
-      <Grid container spacing={10} style={{ marginTop: "-50px" }} direction="row" justify="center" alignItems="center">
+      <Grid
+        container
+        spacing={1}
+        className={classes.sliderValueLabel}
+        direction="row"
+        justify="center"
+        alignItems="center"
+      >
         <Grid item xs={4}>
           <Typography variant="caption" className={classes.textCaption} display="block" gutterBottom>
-            terrible
+            {options[0].description}
           </Typography>
         </Grid>
         <Grid item xs={4}>
           <Typography variant="caption" className={classes.textCaption} display="block" gutterBottom>
-            neutral
+            {options[Math.ceil(options.length / 2) - 1].description}
           </Typography>
         </Grid>
         <Grid item xs={4}>
           <Typography variant="caption" className={classes.textCaption} display="block" gutterBottom>
-            excellent
+            {options[options.length - 1].description}
           </Typography>
         </Grid>
       </Grid>
@@ -588,14 +655,77 @@ function Rating({ onChange, options, value, ...props }) {
         <Typography variant="caption" display="block" gutterBottom>
           Your response:
         </Typography>
-        <Typography variant="h4">{getSliderValue()}</Typography>
+        <Typography variant="h4">{valueText}</Typography>
       </Box>
     </Box>
   )
 }
+
+// // eslint-disable-next-line
+// function CheckboxResponse({ onChange, value, ...props }) {
+//   return <Checkbox {...props} value={value || false} onChange={(event) => onChange(event.target.value)} />
+// }
+
+// // eslint-disable-next-line
+// function SwitchResponse({ onChange, value, ...props }) {
+//   return <Switch {...props} value={value || false} onChange={(event) => onChange(event.target.value)} />
+// }
+const CSV_parse = (x) => (Array.isArray(JSON.parse(`[${x}]`)) ? JSON.parse(`[${x}]`) : [])
+const CSV_stringify = (x) => (Array.isArray(x) ? JSON.stringify(x).slice(1, -1) : "")
+
+function MultiSelectResponse({ onChange, options, value, ...props }) {
+  const [selectedValue, setSelectedValue] = useState(value || "")
+  const _selection = CSV_parse(selectedValue)
+  const classes = useStyles()
+  return (
+    <FormGroup
+      {...props}
+      classes={{
+        root: classes.fieldGroup,
+      }}
+    >
+      {options.map((x) => (
+        <FormControlLabel
+          key={x.label}
+          value={`${x.value}`}
+          style={{ alignItems: x.value.length > 20 && !!x.description ? "flex-start" : undefined }}
+          control={
+            <GreenCheckbox
+              checked={_selection.includes(`${x.value}`)}
+              // color={_selection.includes(`${x.value}`) ? "secondary" : "default"}
+              onClick={() => {
+                let targetValue = !_selection.includes(`${x.value}`)
+                  ? [..._selection, `${x.value}`]
+                  : _selection.filter((y) => y !== `${x.value}`)
+                let _target = CSV_stringify(targetValue)
+                setSelectedValue(_target)
+                onChange(_target)
+              }}
+              // icon={<Icon fontSize="large">check_box_outline_blank</Icon>}
+              // checkedIcon={<Icon fontSize="large">check_box</Icon>}
+              icon={<CheckBoxOutlineBlankIcon fontSize="large" />}
+              checkedIcon={<CheckBoxIcon fontSize="large" />}
+            />
+          }
+          label={
+            <Typography
+              component="span"
+              variant="body2"
+              style={{ color: selectedValue == `${x.value}` ? "black" : "rgba(0, 0, 0, 0.5)" }}
+            >
+              {x.label}
+              {!!x.description && ` (${x.description})`}
+            </Typography>
+          }
+          labelPlacement="end"
+        />
+      ))}
+    </FormGroup>
+  )
+}
 function Question({ onResponse, number, text, type, options, value, startTime, ...props }) {
   let onChange = (value) => {
-    onResponse({ item: text, value: parseInt(value), duration: new Date().getTime() - startTime })
+    onResponse({ item: text, value: value })
   }
   const _binaryOpts = [
     { label: "Yes", value: "Yes" /* true */ },
@@ -618,59 +748,65 @@ function Question({ onResponse, number, text, type, options, value, startTime, .
     { label: "Several Times", value: 1 },
     { label: "Not at all", value: 0 },
   ]
-  const _ratingOpts = [
-    {
-      value: 0,
-      label: "Terrible",
-    },
+  // const _ratingOpts =  [
+  //   {
+  //     value: 0,
+  //     label: "Terrible",
+  //   },
 
-    {
-      value: 10,
-      label: "Very Poor",
-    },
-    {
-      value: 20,
-      label: "Very Poor",
-    },
-    {
-      value: 30,
-      label: "Poor",
-    },
-    {
-      value: 40,
-      label: "Poor",
-    },
+  //   {
+  //     value: 10,
+  //     label: "Very Poor",
+  //   },
+  //   {
+  //     value: 20,
+  //     label: "Very Poor",
+  //   },
+  //   {
+  //     value: 30,
+  //     label: "Poor",
+  //   },
+  //   {
+  //     value: 40,
+  //     label: "Poor",
+  //   },
 
-    {
-      value: 50,
-      label: "Neutral",
-    },
-    {
-      value: 60,
-      label: "Satisfactory",
-    },
-    {
-      value: 70,
-      label: "Good",
-    },
+  //   {
+  //     value: 50,
+  //     label: "Neutral",
+  //   },
+  //   {
+  //     value: 60,
+  //     label: "Satisfactory",
+  //   },
+  //   {
+  //     value: 70,
+  //     label: "Good",
+  //   },
 
-    {
-      value: 80,
-      label: "Pretty Good",
-    },
-    {
-      value: 90,
-      label: "Great",
-    },
-    {
-      value: 100,
-      label: "Exellent",
-    },
-  ]
+  //   {
+  //     value: 80,
+  //     label: "Pretty Good",
+  //   },
+  //   {
+  //     value: 90,
+  //     label: "Great",
+  //   },
+  //   {
+  //     value: 100,
+  //     label: "Exellent",
+  //   },
+  // ]
 
   switch (type) {
-    case "rating":
-      component = <Rating options={_ratingOpts} onChange={onChange} value={!!value ? value.value : undefined} />
+    case "slider":
+      component = (
+        <Rating
+          options={options.sort((a, b) => parseInt(a.value) > parseInt(b.value))}
+          onChange={onChange}
+          value={!!value ? value.value : undefined}
+        />
+      )
       break
     case "likert":
     case "boolean":
@@ -686,6 +822,11 @@ function Question({ onResponse, number, text, type, options, value, startTime, .
       break
     case "time":
       component = <TimeSelection onChange={onChange} value={!!value ? value.value : undefined} />
+      break
+    case "multiselect":
+      component = (
+        <MultiSelectResponse options={options} onChange={onChange} value={!!value ? value.value : undefined} />
+      )
       break
   }
 
@@ -741,9 +882,21 @@ function Questions({
             options={x.options?.map((y) => ({ ...y, label: y.value }))}
             value={responses.current[idx]}
             onResponse={(response) => {
+              let lastEndTime =
+                responses.current
+                  .filter((item) => item.value != null)
+                  .sort(function (a, b) {
+                    return a.endTime - b.endTime
+                  })
+                  .pop()?.endTime ?? startTime
+              let currentItem = responses.current.filter((item) => item.item == x.text).pop()
+
               responses.current[idx] = response
               if (x.type !== "multiselect") setActiveStep((prev) => prev + 1)
-
+              response.duration =
+                (x.type !== "text" ? new Date().getTime() - startTime : new Date().getTime() - lastEndTime) +
+                  currentItem?.duration ?? 0
+              response.endTime = new Date().getTime()
               onResponse(
                 Array.from({
                   ...responses.current,
@@ -751,7 +904,7 @@ function Questions({
                 })
               )
             }}
-            startTime={idx === 0 ? startTime : new Date().getTime()}
+            startTime={new Date().getTime()}
           />
           <div className={classes.sliderActionsContainer}>
             {supportsSidebar && idx === value.settings.length - 1 && (
@@ -917,6 +1070,7 @@ function SurveyQuestions({
   prefillTimestamp,
   toolBarBack,
   type,
+  startTime,
   ...props
 }) {
   const responses = useRef(!!prefillData ? Object.assign({}, prefillData) : {})
@@ -932,7 +1086,7 @@ function SurveyQuestions({
     return true
   }
   const postSubmit = (response) => {
-    console.log(validator(response))
+    response.duration = new Date().getTime() - startTime
     if (!validate) onResponse(response, prefillTimestamp)
     else if (validate && validator(response)) onResponse(response, prefillTimestamp)
     else if (validate && !validator(response)) onValidationFailure()
@@ -965,9 +1119,10 @@ function SurveyQuestions({
 export default function SurveyInstrument({ id, group, onComplete, type, setVisibleActivities, fromPrevent, ...props }) {
   const [survey, setSurvey] = useState<any>()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const supportsSidebar = useMediaQuery(useTheme().breakpoints.up("md"))
   const { enqueueSnackbar } = useSnackbar()
   const classes = useStyles()
+  const startTime = new Date().getTime()
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (group.length === 0) return setSurvey(undefined)
@@ -978,10 +1133,16 @@ export default function SurveyInstrument({ id, group, onComplete, type, setVisib
         prefillTimestamp: !_patientMode() ? group[0].prefillTimestamp : undefined,
       })
     })
+    setTimeout(() => {
+      setLoading(false)
+    }, 2500)
   }, [group])
 
   return (
     <Grid container direction="row">
+      <Backdrop className={classes.backdrop} open={loading}>
+        <CircularProgress color="inherit" />
+      </Backdrop>
       <Grid item style={{ width: "100%" }}>
         <SurveyQuestions
           validate={true}
@@ -997,6 +1158,7 @@ export default function SurveyInstrument({ id, group, onComplete, type, setVisib
           }
           setVisibleActivities={setVisibleActivities}
           onResponse={onComplete}
+          startTime={startTime}
           type={type}
         />
       </Grid>

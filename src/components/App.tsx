@@ -22,6 +22,7 @@ import Participant from "./Participant"
 import NavigationLayout from "./NavigationLayout"
 import HopeBox from "./HopeBox"
 import TipNotification from "./TipNotification"
+import NotificationPage from "./NotificationPage"
 
 // import VegaGraph from "./VegaGraph"
 
@@ -89,16 +90,19 @@ function AppRouter({ ...props }) {
 
       //
       let a = Object.fromEntries(new URLSearchParams(query[1]))["a"]
-      if (a === undefined) return
+      if (a === undefined) window.location.href = "/#/"
       let x = atob(a).split(":")
-
       //
+
       reset({
         id: x[0],
         password: x[1],
-        serverAddress: x[2],
+        serverAddress:
+          x.length > 2 && typeof x[2] !== "undefined"
+            ? x[2] + (x.length > 3 && typeof x[3] !== "undefined" ? ":" + x[3] : "")
+            : "api.lamp.digital",
       }).then((x) => {
-        //props.history.replace('/')
+        window.location.href = query[0]
       })
     } else if (!state.identity) {
       LAMP.Auth.refresh_identity().then((x) => {
@@ -189,7 +193,12 @@ function AppRouter({ ...props }) {
   }
 
   let reset = async (identity?: any) => {
-    await LAMP.Auth.set_identity(identity)
+    await LAMP.Auth.set_identity(identity).catch((e) => {
+      enqueueSnackbar("Invalid id or password.", {
+        variant: "error",
+      })
+      return
+    })
     if (!!identity) {
       let type = {
         identity: LAMP.Auth._me,
@@ -327,6 +336,28 @@ function AppRouter({ ...props }) {
       />
       <Route
         exact
+        path="/participant/:id/activity/:activityId"
+        render={(props) =>
+          !state.identity ? (
+            <React.Fragment>
+              <PageTitle>mindLAMP | Login</PageTitle>
+              <NavigationLayout noToolbar goBack={props.history.goBack} onLogout={() => reset()}>
+                <Login
+                  setIdentity={async (identity) => await reset(identity)}
+                  lastDomain={state.lastDomain}
+                  onComplete={() => props.history.replace("/")}
+                />
+              </NavigationLayout>
+            </React.Fragment>
+          ) : (
+            <React.Fragment>
+              <NotificationPage participant={props.match.params.id} activityId={props.match.params.activityId} />
+            </React.Fragment>
+          )
+        }
+      />
+      <Route
+        exact
         path="/participant/:id/tip"
         render={(props) => (
           <React.Fragment>
@@ -416,10 +447,18 @@ function AppRouter({ ...props }) {
                 title={`${getResearcher(props.match.params.id).name}`}
                 goBack={props.history.goBack}
                 onLogout={() => reset()}
+                activeTab="Researcher"
+                sameLineTitle={true}
               >
                 <Researcher
                   researcher={getResearcher(props.match.params.id)}
-                  onParticipantSelect={(id) => props.history.push(`/participant/${id}`)}
+                  onParticipantSelect={(id) => {
+                    setState((state) => ({
+                      ...state,
+                      activeTab: 3,
+                    }))
+                    props.history.push(`/participant/${id}`)
+                  }}
                 />
               </NavigationLayout>
             </React.Fragment>

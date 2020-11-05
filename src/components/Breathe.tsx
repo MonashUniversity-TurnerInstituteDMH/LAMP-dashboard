@@ -135,6 +135,8 @@ const useStyles = makeStyles((theme) => ({
     fontSize: "16px",
     color: "rgba(0, 0, 0, 0.75)",
     fontWeight: "bold",
+    cursor: "pointer",
+    "& span": { cursor: "pointer" },
     "&:hover": {
       background: "#FFAC98",
       boxShadow:
@@ -194,24 +196,7 @@ const PeachCheckbox = withStyles({
   checked: {},
 })((props: CheckboxProps) => <Checkbox color="default" {...props} />)
 
-async function getBreatheMP3URL(participantId) {
-  return (
-    Object.fromEntries(
-      (
-        await Promise.all(
-          [participantId || ""].map(async (x) => [
-            x,
-            await LAMP.Type.getAttachment(x, "lamp.breathe.music_url").catch((e) => []),
-          ])
-        )
-      )
-        .filter((x: any) => x[1].message !== "404.object-not-found")
-        .map((x: any) => [x[0], x[1].data])
-    )[participantId || ""] || []
-  )
-}
-
-export default function Breathe({ participant, ...props }) {
+export default function Breathe({ participant, activity, ...props }) {
   const classes = useStyles()
   const [started, setStarted] = useState(false)
   const [progressValue, setProgressValue] = useState(0)
@@ -231,7 +216,10 @@ export default function Breathe({ participant, ...props }) {
   const handleNext = () => {
     _setTab(tab + 1)
     setIsLoading(true)
-    playMusic && tab < 1 ? audio.play() : audio.pause()
+    if (audio) {
+      audio.loop = true
+      playMusic && tab < 1 ? audio.play() : audio.pause()
+    }
   }
 
   const videoLoaded = () => {
@@ -249,15 +237,14 @@ export default function Breathe({ participant, ...props }) {
       setProgressLabel(val)
     }
   }
-
   useEffect(() => {
     ;(async () => {
-      let breatheData = await getBreatheMP3URL(participant.id)
-      if (breatheData.URL) {
-        setAudio(new Audio(breatheData.URL))
+      if (activity.settings.audio) {
+        setAudio(new Audio(activity.settings.audio))
       }
     })()
-    let timer
+  }, [])
+  useEffect(() => {
     if (started) {
       setTimeout(setProgressUpdate, 1000)
       let val = progress - 25 >= 0 ? progress - 25 : 100
@@ -266,7 +253,6 @@ export default function Breathe({ participant, ...props }) {
   }, [progressLabel])
 
   useEffect(() => {
-    let timer
     if (started) {
       if (progressValue < 100) {
         let val = progressValue + 0.8
@@ -287,7 +273,16 @@ export default function Breathe({ participant, ...props }) {
     <div className={classes.root}>
       <AppBar position="static" style={{ background: "#FBF1EF", boxShadow: "none" }}>
         <Toolbar className={classes.toolbardashboard}>
-          <IconButton onClick={props.onComplete} color="default" aria-label="Menu">
+          <IconButton
+            onClick={() => {
+              setPlayMusic(false)
+              audio && audio.pause()
+              setAudio(null)
+              props.onComplete()
+            }}
+            color="default"
+            aria-label="Menu"
+          >
             <Icon>arrow_back</Icon>
           </IconButton>
           <Typography variant="h5">Breathe</Typography>
@@ -320,16 +315,11 @@ export default function Breathe({ participant, ...props }) {
                   </Box>
                 </Box>
               )}
+
               <Box textAlign="center" mt={1}>
                 <Fab className={classes.btnpeach} onClick={handleNext}>
                   Start
                 </Fab>
-              </Box>
-              <Box textAlign="center" mt={1}>
-                <FormControlLabel
-                  control={<PeachCheckbox checked={playMusic} onChange={() => setPlayMusic(!playMusic)} />}
-                  label="Play music with exercise"
-                />
               </Box>
             </Box>
           </Box>

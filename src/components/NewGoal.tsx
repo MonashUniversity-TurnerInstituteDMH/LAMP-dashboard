@@ -53,8 +53,6 @@ async function getAttachmentData(participantId, type: string) {
 export default function NewGoal({ participant, ...props }) {
   const classes = useStyles()
   const [open, setOpen] = useState(false)
-  const [journalValue, setJounalValue] = useState("")
-  const [status, setStatus] = useState("Yes")
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
   const [goalName, setGoalName] = useState(null)
   const [goalValue, setGoalValue] = useState(null)
@@ -86,10 +84,8 @@ export default function NewGoal({ participant, ...props }) {
   useEffect(() => {
     ;(async () => {
       let goals = await getAttachmentData(participant.id, "lamp.goals")
-      console.log(goals)
       setGoals(goals)
       let feeds = await getAttachmentData(participant.id, "lamp.feed.goals")
-      console.log(feeds)
       setFeeds(feeds)
     })()
     if (props.goalType == "Exercise" || props.goalType == "Meditation" || props.goalType == "Mood") {
@@ -194,7 +190,6 @@ export default function NewGoal({ participant, ...props }) {
         completed: false,
       }
       all.push(item)
-      console.log(all)
       LAMP.Type.setAttachment(participant.id, "me", "lamp.feed.goals", all)
       props.onComplete()
       enqueueSnackbar(`The goal has been saved successfully.`, {
@@ -248,7 +243,6 @@ export default function NewGoal({ participant, ...props }) {
   }
   const getData = (data) => {
     let x = (data || {})[participant.id || ""] || []
-    console.log(x)
     return !Array.isArray(x) ? [] : x
   }
 
@@ -618,6 +612,8 @@ const useStyles = makeStyles((theme) => ({
     fontSize: "16px",
     color: "rgba(0, 0, 0, 0.75)",
     fontWeight: "bold",
+    cursor: "pointer",
+    "& span": { cursor: "pointer" },
     "&:hover": {
       background: "#FFAC98",
       boxShadow:
@@ -637,7 +633,7 @@ const useStyles = makeStyles((theme) => ({
     },
   },
 
-  linkpeach: { fontSize: 16, color: "#BC453D", fontWeight: 600 },
+  linkpeach: { fontSize: 16, color: "#BC453D", fontWeight: 600, cursor: "pointer" },
 
   weekdays: {
     width: 32,
